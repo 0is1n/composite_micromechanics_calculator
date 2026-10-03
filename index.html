@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Composite Micromechanics Calculator</title>
+<style>
+:root{--bg:#f5f6f4;--card:#fff;--ink:#1c2321;--mute:#66706c;--line:#d9dedb;--acc:#0f6b5c;--accbg:#e1f0ec;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121615;--card:#1b2120;--ink:#e8ede9;--mute:#98a39e;--line:#2f3836;--acc:#5fc7b0;--accbg:#1f3a35}}
+:root[data-theme="dark"]{--bg:#121615;--card:#1b2120;--ink:#e8ede9;--mute:#98a39e;--line:#2f3836;--acc:#5fc7b0;--accbg:#1f3a35}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 -apple-system,"SF Pro Text",system-ui,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 12px}
+h2{font-size:16px;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+label{display:block;font-size:14px;color:var(--mute);margin-bottom:4px}
+input,select{width:100%;font:inherit;font-size:20px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums}
+input:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+button{font:inherit;font-size:16px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);min-height:44px;min-width:44px;cursor:pointer}
+button.on{background:var(--accbg);border-color:var(--acc);color:var(--acc)}
+.pair{display:flex;gap:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+@media (max-width:700px){.grid{grid-template-columns:1fr}}
+.mat{overflow-x:auto}
+table{border-collapse:collapse;margin:4px 0;border-left:2px solid var(--ink);border-right:2px solid var(--ink);font-variant-numeric:tabular-nums;font-size:18px}
+td{padding:6px 12px;text-align:right;white-space:nowrap}
+.unit{color:var(--mute);font-size:14px}
+.err{color:#b3261e;font-size:15px;min-height:1.2em}
+.note{color:var(--mute);font-size:14px}
+#states, #out { min-height: 20px; width: 100%; }
+</style>
+</head>
+<body>
+<main>
+<h1>Composite Micromechanics Calculator</h1>
+
+<section class="card">
+<h2>Material and angle</h2>
+<div class="inputs">
+<div><label for="E1">E₁</label><input id="E1" inputmode="decimal" autocomplete="off" value="19.755"></div>
+<div><label for="E2">E₂</label><input id="E2" inputmode="decimal" autocomplete="off" value="1.9755"></div>
+<div><label for="nu">ν₁₂</label><input id="nu" inputmode="decimal" autocomplete="off" value="0.35"></div>
+<div><label for="G">G₁₂</label><input id="G" inputmode="decimal" autocomplete="off" value="0.7"></div>
+<div><label for="unit">Modulus unit</label><select id="unit"><option value="GPa">GPa</option><option value="MPa">MPa</option></select></div>
+<div><label for="th">θ (degrees)</label><div class="pair"><input id="th" inputmode="decimal" autocomplete="off" value="60"><button data-for="th" class="sg" aria-label="Change sign of angle">±</button></div></div>
+</div>
+<div class="row" id="chips" aria-label="Quick angles"></div>
+</section>
+
+<section class="card">
+<h2>Load</h2>
+<div class="row" style="margin-top:0">
+<button id="kS" class="on">Stress known</button><button id="kE">Strain known</button>
+<button id="sXY" class="on">in x-y</button><button id="s12">in 1-2</button>
+</div>
+<div class="inputs" style="margin-top:12px">
+<div><label for="v1" id="l1">σx</label><div class="pair"><input id="v1" inputmode="decimal" autocomplete="off" value="-3.5"><button class="sg" data-for="v1" aria-label="Change sign">±</button></div></div>
+<div><label for="v2" id="l2">σy</label><div class="pair"><input id="v2" inputmode="decimal" autocomplete="off" value="7"><button class="sg" data-for="v2" aria-label="Change sign">±</button></div></div>
+<div><label for="v3" id="l3">τxy</label><div class="pair"><input id="v3" inputmode="decimal" autocomplete="off" value="-1.4"><button class="sg" data-for="v3" aria-label="Change sign">±</button></div></div>
+<div><label for="sunit">Strain unit</label><select id="sunit"><option value="ue">µε (×10⁻⁶)</option><option value="1">plain (ε)</option></select></div>
+</div>
+<div class="note" style="margin-top:8px">Stress in MPa. Choose unit for strain.</div>
+<div class="err" id="err" role="alert"></div>
+</section>
+
+<div id="states"></div>
+<div id="out"></div>
+
+</main>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+ const $=id=>document.getElementById(id);
+ const num=id=>parseFloat($(id).value.replace(',','.'));
+ const fmt=v=>{if(!isFinite(v))return'–';if(Math.abs(v)<1e-9)return'0';const a=Math.abs(v);
+  return (a>=1e6||a<1e-3)?v.toExponential(3):parseFloat(v.toPrecision(5)).toString()};
+ const L={stress:{xy:['σx','σy','τxy'],m:['σ₁','σ₂','τ₁₂']},strain:{xy:['εx','εy','γxy'],m:['ε₁','ε₂','γ₁₂']}};
+ let known='stress',sys='xy';
+ function inv3(m){const[a,b,c,d,e,f,g,h,i]=m;
+  const A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g,det=a*A+b*B+c*C;
+  return[A,-(b*i-c*h),b*f-c*e,B,a*i-c*g,-(a*f-c*d),C,-(a*h-b*g),a*e-b*d].map(x=>x/det)}
+ const mulv=(M,v)=>[0,1,2].map(i=>M[3*i]*v[0]+M[3*i+1]*v[1]+M[3*i+2]*v[2]);
+ function table(m,cols){let r='<table>';for(let i=0;i<3;i++){r+='<tr>';for(let j=0;j<cols;j++)r+='<td>'+fmt(m[cols*i+j])+'</td>';r+='</tr>'}return r+'</table>'}
+ const card=(t,u,m,c)=>'<div class="card mat"><h2>'+t+' <span class="unit">'+u+'</span></h2>'+table(m,c)+'</div>';
+ function setLabels(){const k=L[known][sys==='xy'?'xy':'m'];['l1','l2','l3'].forEach((id,i)=>$(id).textContent=k[i])}
+ function calc(){
+  const E1=num('E1'),E2=num('E2'),nu=num('nu'),G=num('G'),th=num('th'),err=$('err');
+  if([E1,E2,nu,G,th].some(isNaN)){err.textContent='Enter a number in every material field and the angle.';return}
+  if(E1<=0||E2<=0||G<=0){err.textContent='E₁, E₂ and G₁₂ must be positive.';return}
+  const nu21=nu*E2/E1,d=1-nu*nu21;
+  if(d<=0){err.textContent='ν₁₂ is too large: 1 − ν₁₂ν₂₁ must be positive.';return}
+  const inp=[num('v1'),num('v2'),num('v3')];
+  if(inp.some(isNaN)){err.textContent='Enter a number in every load field.';return}
+  err.textContent='';
+  const S=[1/E1,-nu/E1,0,-nu/E1,1/E2,0,0,0,1/G];
+  const Q=[E1/d,nu*E2/d,0,nu*E2/d,E2/d,0,0,0,G];
+  const t=th*Math.PI/180,m=Math.cos(t),n=Math.sin(t),m2=m*m,n2=n*n;
+  const Q11=Q[0],Q12=Q[1],Q22=Q[4],Q66=Q[8];
+  const q11=m2*m2*Q11+n2*n2*Q22+2*m2*n2*Q12+4*m2*n2*Q66;
+  const q22=n2*n2*Q11+m2*m2*Q22+2*m2*n2*Q12+4*m2*n2*Q66;
+  const q12=m2*n2*(Q11+Q22-4*Q66)+(m2*m2+n2*n2)*Q12;
+  const q16=m2*m*n*(Q11-Q12-2*Q66)+m*n2*n*(Q12-Q22+2*Q66);
+  const q26=m*n2*n*(Q11-Q12-2*Q66)+m2*m*n*(Q12-Q22+2*Q66);
+  const q66=m2*n2*(Q11+Q22-2*Q12-2*Q66)+(m2*m2+n2*n2)*Q66;
+  const Qb=[q11,q12,q16,q12,q22,q26,q16,q26,q66],Sb=inv3(Qb);
+  const Ef=$('unit').value==='GPa'?1000:1,sc=$('sunit').value==='ue'?1e-6:1;
+  const QbM=Qb.map(x=>x*Ef),SbM=Sb.map(x=>x/Ef);
+  const Ts=[m2,n2,2*m*n,n2,m2,-2*m*n,-m*n,m*n,m2-n2];
+  const Te=[m2,n2,m*n,n2,m2,-m*n,-2*m*n,2*m*n,m2-n2];
+  let sxy,exy;
+  if(known==='stress'){sxy=sys==='xy'?inp:mulv(inv3(Ts),inp);exy=mulv(SbM,sxy)}
+  else{const e=inp.map(x=>x*sc);exy=sys==='xy'?e:mulv(inv3(Te),e);sxy=mulv(QbM,exy)}
+  const s12=mulv(Ts,sxy),e12=mulv(Te,exy),su=sc===1e-6?'[µε]':'[ε]',ec=v=>v.map(x=>x/sc);
+  $('states').innerHTML='<div class="grid4">'+
+   card('σ_xy','[MPa]',sxy,1)+card('σ_12','[MPa]',s12,1)+
+   card('ε_xy',su,ec(exy),1)+card('ε_12',su,ec(e12),1)+'</div>';
+  const u='['+$('unit').value+']',ui='[1/'+$('unit').value+']',a=' θ = '+fmt(th)+'°';
+  $('out').innerHTML='<div class="grid">'+
+   card('Q',u,Q,3)+card('S',ui,S,3)+
+   card('Q̄',u,Qb,3)+card('S̄',ui,Sb,3)+'</div>'}
+ document.querySelectorAll('input,select').forEach(i=>{
+  i.addEventListener('input',calc);
+  i.addEventListener('change',calc);
+ });
+ document.querySelectorAll('.sg').forEach(b=>b.onclick=()=>{const el=$(b.dataset.for),v=parseFloat(el.value.replace(',','.'));if(!isNaN(v)){el.value=-v;calc()}});
+ function pick(){$('kS').classList.toggle('on',known==='stress');$('kE').classList.toggle('on',known==='strain');
+  $('sXY').classList.toggle('on',sys==='xy');$('s12').classList.toggle('on',sys==='m');setLabels();calc()}
+ $('kS').onclick=()=>{known='stress';pick()};$('kE').onclick=()=>{known='strain';pick()};
+ $('sXY').onclick=()=>{sys='xy';pick()};$('s12').onclick=()=>{sys='m';pick()};
+ [0,15,30,45,60,75,90,-45].forEach(a=>{const b=document.createElement('button');b.textContent=a+'°';
+  b.onclick=()=>{$('th').value=a;calc()};$('chips').appendChild(b)});
+ setLabels();calc();
+});
+</script>
+</body>
+</html>
