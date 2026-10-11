@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Composite Micromechanics Calculator</title>
+<style>
+:root{--bg:#f5f6f4;--card:#fff;--ink:#1c2321;--mute:#66706c;--line:#d9dedb;--acc:#0f6b5c;--accbg:#e1f0ec;--bad:#b3261e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121615;--card:#1b2120;--ink:#e8ede9;--mute:#98a39e;--line:#2f3836;--acc:#5fc7b0;--accbg:#1f3a35;--bad:#ff8a80}}
+:root[data-theme="dark"]{--bg:#121615;--card:#1b2120;--ink:#e8ede9;--mute:#98a39e;--line:#2f3836;--acc:#5fc7b0;--accbg:#1f3a35;--bad:#ff8a80}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 -apple-system,"SF Pro Text",system-ui,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 12px}
+h2{font-size:16px;margin:0 0 8px}
+h3{font-size:14px;margin:14px 0 6px;color:var(--mute);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.span{grid-column:1/-1}
+label{display:block;font-size:14px;color:var(--mute);margin-bottom:4px}
+input,select{width:100%;font:inherit;font-size:20px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums;-webkit-appearance:none;appearance:none}
+select{padding-right:28px}
+input:focus-visible,button:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+button{font:inherit;font-size:16px;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);min-height:44px;min-width:44px;cursor:pointer}
+button.on{background:var(--accbg);border-color:var(--acc);color:var(--acc)}
+.pair{display:flex;gap:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:480px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+@media (max-width:700px){.grid{grid-template-columns:1fr}}
+.mat{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;margin:4px 0;font-variant-numeric:tabular-nums;font-size:18px}
+table.m{border-left:2px solid var(--ink);border-right:2px solid var(--ink);width:100%}
+table.m td{padding:6px 12px;text-align:right;white-space:nowrap}
+table.m td.rb{border-right:1px solid var(--mute)}
+table.m tr.bb td{border-bottom:1px solid var(--mute)}
+table.f{width:100%;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+table.f th,table.f td{padding:7px 10px;text-align:right;white-space:nowrap}
+table.f th{font-size:14px;color:var(--mute);border-bottom:1px solid var(--line)}
+table.f th:first-child,table.f td:first-child{text-align:left}
+table.f tr.sep td{border-top:2px solid var(--line)}
+.unit{color:var(--mute);font-size:14px;font-weight:400}
+.err{color:var(--bad);font-size:15px;min-height:1.2em;margin-bottom:10px;font-weight:600}
+.note{color:var(--mute);font-size:14px}
+.checkbox-label{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:16px;color:var(--ink);user-select:none;-webkit-user-select:none}
+.checkbox-label input{width:22px;height:22px;accent-color:var(--acc)}
+details{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:8px}
+summary{cursor:pointer;font-weight:600;font-size:15px;min-height:28px}
+details[open] summary{margin-bottom:10px}
+details .card{background:var(--bg)}
+</style>
+</head>
+<body>
+<main>
+<h1>Composite Micromechanics Calculator</h1>
+
+<section class="card">
+  <h2>Analysis mode</h2>
+  <div class="row" style="margin-top:0">
+    <button id="mSingle" class="on">Single lamina</button>
+    <button id="mLaminate">Laminate (layup)</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Material</h2>
+  <label for="matInputMode">Define the lamina material using:</label>
+  <select id="matInputMode">
+    <option value="eng">Engineering constants (E₁, E₂, μ₁₂, G₁₂)</option>
+    <option value="Q">Stiffness matrix Q [1-2 system] (GPa)</option>
+    <option value="S">Compliance matrix S [1-2 system] (1/GPa)</option>
+    <option value="Qb">Transformed stiffness Q̄ [x-y system] (GPa) – single lamina only</option>
+    <option value="Sb">Transformed compliance S̄ [x-y system] (1/GPa) – single lamina only</option>
+  </select>
+  <div id="inp-eng" class="inputs" style="margin-top:12px">
+    <div><label for="E1">E₁ (GPa)</label><input id="E1" inputmode="decimal" autocomplete="off" value="19.755"></div>
+    <div><label for="E2">E₂ (GPa)</label><input id="E2" inputmode="decimal" autocomplete="off" value="1.9755"></div>
+    <div><label for="nu">μ₁₂</label><input id="nu" inputmode="decimal" autocomplete="off" value="0.35"></div>
+    <div><label for="G">G₁₂ (GPa)</label><input id="G" inputmode="decimal" autocomplete="off" value="0.7"></div>
+  </div>
+  <div id="inp-mat" style="display:none;margin-top:12px">
+    <div class="note" id="matNote" style="margin-bottom:8px"></div>
+    <div class="grid3" id="matGrid"></div>
+  </div>
+</section>
+
+<!-- ============ SINGLE LAMINA ============ -->
+<div id="sec-lamina">
+  <section class="card">
+    <h2>Lamina orientation</h2>
+    <div class="inputs"><div id="thBox"></div></div>
+    <div class="row" id="chips" aria-label="Quick angles"></div>
+  </section>
+  <section class="card">
+    <h2>Lamina load</h2>
+    <div class="row" style="margin-top:0">
+      <button id="kS" class="on">Stress known</button><button id="kE">Strain known</button>
+      <button id="sXY" class="on">in x-y</button><button id="s12">in 1-2</button>
+    </div>
+    <div class="inputs" id="lamLoad" style="margin-top:12px"></div>
+    <div class="inputs" style="margin-top:12px">
+      <div><label for="sunit">Strain unit</label><select id="sunit"><option value="ue">µε (×10⁻⁶)</option><option value="1">plain (ε)</option></select></div>
+    </div>
+    <div class="note" style="margin-top:8px">Stress in MPa. γ is engineering shear strain.</div>
+  </section>
+</div>
+
+<!-- ============ LAMINATE ============ -->
+<div id="sec-laminate" style="display:none">
+  <section class="card">
+    <h2>Layup</h2>
+    <div class="inputs">
+      <div class="span"><label for="layup">Lamina angles, top → bottom [deg] — e.g. <b>45, 0, 90, 90</b> or <b>[45/0/90_2]</b> or <b>[0/45]s</b></label>
+        <input id="layup" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="45, 0"></div>
+      <div class="span"><label for="thickness">Lamina thickness [mm] — one value for all, or one per lamina (decimal point, e.g. 0.125)</label>
+        <input id="thickness" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="3, 5"></div>
+    </div>
+    <div class="row">
+      <label class="checkbox-label"><input type="checkbox" id="sym"> Symmetric: mirror the list below the mid-plane (a thickness list is then for the half stack)</label>
+    </div>
+  </section>
+  <section class="card">
+    <h2>Laminate load / deformation</h2>
+    <div class="row" style="margin-top:0">
+      <button id="lkN" class="on">Load known (N, M)</button>
+      <button id="lkE">Deformation known (ε°, κ)</button>
+    </div>
+    <div class="inputs" id="lamNM" style="margin-top:12px"></div>
+  </section>
+  <section class="card">
+    <h2>Point to evaluate</h2>
+    <div class="inputs"><div id="zBox"></div></div>
+    <div class="note" style="margin-top:8px">z is measured from the mid-plane (neutral axis), positive downward toward the last lamina. Lamina 1 is the top lamina; θ is positive from x toward 1.</div>
+  </section>
+</div>
+
+<div class="err" id="err" role="alert"></div>
+<div id="states"></div>
+<div id="out"></div>
+</main>
+
+<script>
+/* =====================================================================
+   CORE - pure functions, no DOM. Units: GPa for Q/S, MPa for stress,
+   mm, N/mm (force flow), N*mm/mm (moment flow), 1/mm (curvature).
+   Matrices are arrays of rows.
+   ===================================================================== */
+var core=(function(){
+"use strict";
+
+function mul(A,B){return A.map(function(r,i){return B[0].map(function(_,j){var s=0;for(var k=0;k<B.length;k++)s+=A[i][k]*B[k][j];return s})})}
+function mv(A,v){return A.map(function(r){return r.reduce(function(s,x,j){return s+x*v[j]},0)})}
+function scale(A,s){return A.map(function(r){return r.map(function(x){return x*s})})}
+function zeros(n){var Z=[];for(var i=0;i<n;i++){Z.push([]);for(var j=0;j<n;j++)Z[i].push(0)}return Z}
+function maxAbs(M){var m=0;M.forEach(function(r){(Array.isArray(r)?r:[r]).forEach(function(x){m=Math.max(m,Math.abs(x))})});return m}
+
+/* Gauss-Jordan with partial pivoting on every column and a relative singularity test */
+function inv(M){
+  var n=M.length,a=[],i,j,k,p,t,f,mx=maxAbs(M);
+  if(!isFinite(mx)||mx===0)throw new Error("Matrix is singular - check the inputs.");
+  for(i=0;i<n;i++){a.push(M[i].slice());for(j=0;j<n;j++)a[i].push(i===j?1:0)}
+  for(i=0;i<n;i++){
+    p=i;for(k=i+1;k<n;k++)if(Math.abs(a[k][i])>Math.abs(a[p][i]))p=k;
+    if(Math.abs(a[p][i])<1e-13*mx)throw new Error("Matrix is singular - check the inputs.");
+    t=a[i];a[i]=a[p];a[p]=t;
+    f=a[i][i];for(j=0;j<2*n;j++)a[i][j]/=f;
+    for(k=0;k<n;k++){if(k===i)continue;f=a[k][i];if(f!==0)for(j=0;j<2*n;j++)a[k][j]-=f*a[i][j]}
+  }
+  return a.map(function(r){return r.slice(n)});
+}
+
+/* ---------- lamina ---------- */
+function transforms(thDeg){            /* Ts = T (stress xy->12), Te = T^-T (strain xy->12) */
+  var t=thDeg*Math.PI/180,m=Math.cos(t),n=Math.sin(t);
+  return{Ts:[[m*m,n*n,2*m*n],[n*n,m*m,-2*m*n],[-m*n,m*n,m*m-n*n]],
+         Te:[[m*m,n*n,m*n],[n*n,m*m,-m*n],[-2*m*n,2*m*n,m*m-n*n]]};
+}
+function fromEng(E1,E2,nu,G){
+  if(!(E1>0&&E2>0&&G>0))throw new Error("E₁, E₂ and G₁₂ must be positive.");
+  var nu21=nu*E2/E1,d=1-nu*nu21;
+  if(!(d>0))throw new Error("μ₁₂ is too large: 1 − μ₁₂·μ₂₁ must be positive.");
+  return{S:[[1/E1,-nu/E1,0],[-nu/E1,1/E2,0],[0,0,1/G]],Q:[[E1/d,nu*E2/d,0],[nu*E2/d,E2/d,0],[0,0,G]]};
+}
+/* kind: eng | Q | S | Qb | Sb.  data: object (eng) or 3x3 matrix.  th only used for Qb / Sb */
+function material(kind,data,th){
+  var Q,S,Qb;
+  if(kind==="eng"){var m=fromEng(data.E1,data.E2,data.nu12,data.G12);Q=m.Q;S=m.S}
+  else if(kind==="Q"){Q=data;S=inv(Q)}
+  else if(kind==="S"){S=data;Q=inv(S)}
+  else{var T=transforms(th);Qb=(kind==="Qb")?data:inv(data);Q=mul(mul(T.Ts,Qb),inv(T.Te));S=inv(Q)}
+  return{Q:Q,S:S,E1:1/S[0][0],E2:1/S[1][1],nu12:-S[0][1]/S[0][0],G12:1/S[2][2]};
+}
+function qbar(Q,th){                   /* Qbar = Ts^-1 Q Te */
+  var T=transforms(th),Qb=mul(mul(inv(T.Ts),Q),T.Te);
+  return{Qb:Qb,Sb:inv(Qb),Ts:T.Ts,Te:T.Te};
+}
+function laminaSolve(known,system,load,Q,th){   /* strain given as plain strain; returns plain strain */
+  var q=qbar(Q,th),Qb=scale(q.Qb,1e3),Sb=scale(q.Sb,1e-3),sxy,exy;
+  if(known==="strain"){exy=system==="xy"?load:mv(inv(q.Te),load);sxy=mv(Qb,exy)}
+  else{sxy=system==="xy"?load:mv(inv(q.Ts),load);exy=mv(Sb,sxy)}
+  return{sxy:sxy,s12:mv(q.Ts,sxy),exy:exy,e12:mv(q.Te,exy)};
+}
+
+/* ---------- laminate ---------- */
+/* "45, 0, 90_2", "[45/0/90_2]s", "±45" ... strict: anything unreadable is an error */
+function parseLayup(txt){
+  var s=String(txt).replace(/[\[\]\(\)]/g," ").trim(),sym=false;
+  if(/[_\s\d][sS]$/.test(s)||/^[sS]$/.test(s)){sym=true;s=s.replace(/[_\s]*[sS]$/,"")}
+  var tokens=s.split(/[\s,;\/]+/).filter(function(x){return x.length}),angles=[];
+  tokens.forEach(function(tk){
+    var m=/^(±|\+-|[+-])?(\d+\.?\d*|\.\d+)(?:_(\d+))?$/.exec(tk);
+    if(!m)throw new Error('Cannot read "'+tk+'" in the layup. Use numbers separated by commas, spaces or "/" (e.g. 45, 0, 90_2).');
+    var v=parseFloat(m[2]),cnt=m[3]?parseInt(m[3],10):1,i;
+    if(m[1]==="-")v=-v;
+    for(i=0;i<cnt;i++){angles.push(v);if(m[1]==="±"||m[1]==="+-")angles.push(-v)}
+  });
+  if(!angles.length)throw new Error("Enter at least one lamina angle.");
+  if(angles.length>100)throw new Error("Too many laminae (max 100).");
+  return{angles:angles,sym:sym};
+}
+function parseList(txt,name){
+  var tokens=String(txt).split(/[\s,;\/]+/).filter(function(x){return x.length});
+  if(!tokens.length)throw new Error("Enter the lamina thickness.");
+  return tokens.map(function(x){
+    var v=/^[+]?(\d+\.?\d*|\.\d+)$/.test(x)?parseFloat(x):NaN;
+    if(!(v>0))throw new Error('Cannot read "'+x+'" as a positive '+name+" (use a decimal point, e.g. 0.125).");
+    return v;
+  });
+}
+function buildLayup(angles,sym,t){
+  var n=angles.length,th,i;
+  if(t.length===1){th=[];for(i=0;i<n;i++)th.push(t[0])}
+  else if(t.length===n)th=t.slice();
+  else throw new Error("Thickness: give one value, or exactly "+n+" values (one per lamina, decimal point not comma).");
+  var a=angles.slice();
+  if(sym){a=a.concat(angles.slice().reverse());th=th.concat(th.slice().reverse())}
+  var H=th.reduce(function(s,x){return s+x},0),h=[-H/2];
+  for(i=0;i<th.length;i++)h.push(h[i]+th[i]);
+  return{angles:a,th:th,h:h,H:H};
+}
+function laminateABD(Q,angles,h){      /* eq. 5.43 : A [N/mm], B [N], D [N*mm] */
+  var A=zeros(3),B=zeros(3),D=zeros(3),k,i,j;
+  for(k=0;k<angles.length;k++){
+    var Qb=scale(qbar(Q,angles[k]).Qb,1e3),h0=h[k],h1=h[k+1];
+    for(i=0;i<3;i++)for(j=0;j<3;j++){
+      A[i][j]+=Qb[i][j]*(h1-h0);
+      B[i][j]+=Qb[i][j]*(h1*h1-h0*h0)/2;
+      D[i][j]+=Qb[i][j]*(h1*h1*h1-h0*h0*h0)/3;
+    }
+  }
+  var ABD=[];
+  for(i=0;i<3;i++)ABD.push(A[i].concat(B[i]));
+  for(i=0;i<3;i++)ABD.push(B[i].concat(D[i]));
+  return{A:A,B:B,D:D,ABD:ABD};
+}
+function engConstants(abdInv,H){       /* Table 5.3, moduli in GPa */
+  var a=[0,1,2].map(function(i){return abdInv[i].slice(0,3)}),d=[3,4,5].map(function(i){return abdInv[i].slice(3,6)});
+  return{
+    tensile:{Ex:1e-3/(H*a[0][0]),Ey:1e-3/(H*a[1][1]),Gxy:1e-3/(H*a[2][2]),mu_xy:-a[0][1]/a[0][0],mu_yx:-a[0][1]/a[1][1]},
+    bending:{Ex:12e-3/(H*H*H*d[0][0]),Ey:12e-3/(H*H*H*d[1][1]),Gxy:12e-3/(H*H*H*d[2][2]),mu_xy:-d[0][1]/d[0][0],mu_yx:-d[0][1]/d[1][1]}
+  };
+}
+/* indices of the laminae containing z: one, or two when z is exactly on an interface; error outside */
+function laminaeAt(z,h){
+  var n=h.length-1,tol=1e-9*Math.max(1,Math.abs(h[n])),out=[],k;
+  if(z<h[0]-tol||z>h[n]+tol)throw new Error("z = "+z+" mm is outside the laminate (it spans "+Number(h[0].toPrecision(6))+" to "+Number(h[n].toPrecision(6))+" mm).");
+  for(k=0;k<n;k++)if(h[k]-tol<=z&&z<=h[k+1]+tol)out.push(k);
+  return out;
+}
+function laminaState(Q,ang,e0,kap,z){  /* eq. 5.38, 5.39. strain plain, stress MPa */
+  var q=qbar(Q,ang),exy=e0.map(function(e,i){return e+z*kap[i]}),sxy=mv(scale(q.Qb,1e3),exy);
+  return{exy:exy,e12:mv(q.Te,exy),sxy:sxy,s12:mv(q.Ts,sxy)};
+}
+
+return{mul:mul,mv:mv,inv:inv,maxAbs:maxAbs,transforms:transforms,material:material,qbar:qbar,laminaSolve:laminaSolve,
+  parseLayup:parseLayup,parseList:parseList,buildLayup:buildLayup,laminateABD:laminateABD,engConstants:engConstants,
+  laminaeAt:laminaeAt,laminaState:laminaState};
+})();
+
+if(typeof module!=="undefined"&&module.exports){module.exports=core}
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+if(typeof document!=="undefined")(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+
+/* single-number fields: comma decimal accepted; anything unreadable is NaN (no silent prefix parsing) */
+function num(id){var s=$(id).value.trim().replace(",",".");return s===""?NaN:Number(s)}
+function req(id,name){var v=num(id);if(!isFinite(v))throw new Error("Enter a valid number for "+name+".");return v}
+
+/* ---------- formatting ---------- */
+function fmt(v,sci){
+  if(!isFinite(v))return"–";
+  if(v===0)return"0";
+  if(sci)return v.toExponential(3);
+  var a=Math.abs(v);
+  return(a>=1e6||a<1e-3)?v.toExponential(3):String(parseFloat(v.toPrecision(5)));
+}
+var pf=function(x){return String(+x.toPrecision(10))};
+function clean(rows){                  /* zero round-off noise relative to the largest entry of this matrix */
+  var mx=core.maxAbs(rows);
+  return rows.map(function(r){return r.map(function(x){return Math.abs(x)<1e-12*mx?0:x})});
+}
+function tableHTML(M,o){
+  o=o||{};
+  var rows=clean(Array.isArray(M[0])?M:M.map(function(x){return[x]})),s="<table class='m'>";
+  rows.forEach(function(r,i){
+    s+="<tr"+((o.split&&i===o.split-1)?" class='bb'":"")+">";
+    r.forEach(function(x,j){s+="<td"+((o.split&&j===o.split-1)?" class='rb'":"")+">"+fmt(x,o.sci)+"</td>"});
+    s+="</tr>";
+  });
+  return s+"</table>";
+}
+function card(title,unit,M,o){return"<div class='card mat'><h2>"+title+(unit?" <span class='unit'>"+unit+"</span>":"")+"</h2>"+tableHTML(M,o)+"</div>"}
+var us=function(v){return v.map(function(x){return x*1e6})};
+
+/* ---------- input fields ---------- */
+function field(id,label,val,signed){
+  return"<div><label for='"+id+"' id='l_"+id+"'>"+label+"</label><div class='pair'><input id='"+id+"' inputmode='decimal' autocomplete='off' value='"+val+"'>"+
+    (signed?"<button type='button' class='sg' data-for='"+id+"' aria-label='Change sign of "+label+"'>±</button>":"")+"</div></div>";
+}
+$("thBox").innerHTML=field("th","θ (degrees)",60,true);
+$("lamLoad").innerHTML=field("v1","σx",-3.5,true)+field("v2","σy",7,true)+field("v3","τxy",-1.4,true);
+$("lamNM").innerHTML=field("n1","Nx",0,true)+field("n2","Ny",0,true)+field("n3","Nxy",0,true)+field("m1","Mx",10,true)+field("m2","My",0,true)+field("m3","Mxy",0,true);
+$("zBox").innerHTML=field("zpt","z (mm)  [+ downward]",-2.5,true);
+
+var SUB=["₁₁","₁₂","₁₆","₂₁","₂₂","₂₆","₆₁","₆₂","₆₆"],g="";
+SUB.forEach(function(s,i){g+="<div><label id='gl"+i+"' for='g"+i+"'></label><input id='g"+i+"' inputmode='decimal' autocomplete='off'></div>"});
+$("matGrid").innerHTML=g;
+
+var LAB={stress:{xy:["σx","σy","τxy"],m:["σ₁","σ₂","τ₁₂"]},strain:{xy:["εx","εy","γxy"],m:["ε₁","ε₂","γ₁₂"]}};
+var mode="lamina",known="stress",sys="xy",lamKnown="load",prevMat="eng";
+
+function setLabel(id,t){$("l_"+id).textContent=t}
+function updateLabels(){
+  var k=LAB[known][sys==="xy"?"xy":"m"];
+  ["v1","v2","v3"].forEach(function(id,i){setLabel(id,k[i])});
+  if(lamKnown==="load"){
+    ["Nx (N/mm)","Ny (N/mm)","Nxy (N/mm)","Mx (N·mm/mm)","My (N·mm/mm)","Mxy (N·mm/mm)"].forEach(function(t,i){setLabel(["n1","n2","n3","m1","m2","m3"][i],t)});
+  }else{
+    ["ε°x (µε)","ε°y (µε)","γ°xy (µε)","κx (1/mm)","κy (1/mm)","κxy (1/mm)"].forEach(function(t,i){setLabel(["n1","n2","n3","m1","m2","m3"][i],t)});
+  }
+}
+
+/* ---------- material ---------- */
+function readGrid(){
+  var M=[[0,0,0],[0,0,0],[0,0,0]];
+  for(var i=0;i<9;i++)M[Math.floor(i/3)][i%3]=req("g"+i,"matrix element "+SUB[i]);
+  return M;
+}
+function readMaterial(kind){
+  if(kind==="eng")return core.material("eng",{E1:req("E1","E₁"),E2:req("E2","E₂"),nu12:req("nu","μ₁₂"),G12:req("G","G₁₂")});
+  var M=readGrid(),th=(kind==="Qb"||kind==="Sb")?req("th","θ"):0;
+  return core.material(kind,M,th);
+}
+function showMat(kind){
+  $("inp-eng").style.display=kind==="eng"?"grid":"none";
+  $("inp-mat").style.display=kind==="eng"?"none":"block";
+  if(kind!=="eng"){
+    var nm={Q:"Q",S:"S",Qb:"Q̄",Sb:"S̄"}[kind];
+    SUB.forEach(function(s,i){$("gl"+i).textContent=nm+s});
+    $("matNote").textContent="Enter the elements of "+nm+(kind==="Qb"||kind==="Sb"?" for the angle θ set below.":".")+" Switching the input method converts what you entered.";
+  }
+}
+function onMatChange(){
+  var next=$("matInputMode").value,mat=null;
+  try{mat=readMaterial(prevMat)}catch(e){}       /* convert from what was entered, not from stale fields */
+  showMat(next);
+  if(mat){
+    var th=num("th");if(!isFinite(th))th=0;
+    if(next==="eng"){$("E1").value=pf(mat.E1);$("E2").value=pf(mat.E2);$("nu").value=pf(mat.nu12);$("G").value=pf(mat.G12)}
+    else{
+      var M=next==="Q"?mat.Q:next==="S"?mat.S:(next==="Qb"?core.qbar(mat.Q,th).Qb:core.qbar(mat.Q,th).Sb);
+      for(var i=0;i<9;i++)$("g"+i).value=pf(M[Math.floor(i/3)][i%3]);
+    }
+  }
+  prevMat=next;calc();
+}
+
+/* ---------- details open-state survives re-render ---------- */
+function openSet(){var o={},d=document.querySelectorAll("#out details[open]");for(var i=0;i<d.length;i++)o[d[i].getAttribute("data-i")]=true;return o}
+function restoreOpen(o){var d=document.querySelectorAll("#out details");for(var i=0;i<d.length;i++)if(o[d[i].getAttribute("data-i")])d[i].setAttribute("open","")}
+
+/* ---------- single lamina ---------- */
+function renderLamina(){
+  var th=req("th","θ"),mat=readMaterial($("matInputMode").value);
+  var inp=[req("v1",LAB[known][sys==="xy"?"xy":"m"][0]),req("v2",LAB[known][sys==="xy"?"xy":"m"][1]),req("v3",LAB[known][sys==="xy"?"xy":"m"][2])];
+  var sc=$("sunit").value==="ue"?1e-6:1,su=sc===1e-6?"[µε]":"[ε]";
+  var load=known==="strain"?inp.map(function(x){return x*sc}):inp;
+  var r=core.laminaSolve(known,sys,load,mat.Q,th),q=core.qbar(mat.Q,th),ec=function(v){return v.map(function(x){return x/sc})};
+  var states="<div class='grid4'>"+card("σ_xy","[MPa]",r.sxy)+card("σ_12","[MPa]",r.s12)+card("ε_xy",su,ec(r.exy))+card("ε_12",su,ec(r.e12))+"</div>";
+  var out="<div class='card mat'><h2>Engineering constants</h2><table class='f'><thead><tr><th>E₁ (GPa)</th><th>E₂ (GPa)</th><th>μ₁₂</th><th>G₁₂ (GPa)</th></tr></thead><tbody><tr><td>"+
+    fmt(mat.E1)+"</td><td>"+fmt(mat.E2)+"</td><td>"+fmt(mat.nu12)+"</td><td>"+fmt(mat.G12)+"</td></tr></tbody></table></div>"+
+    "<div class='grid'>"+card("Q","[GPa]",mat.Q)+card("S","[1/GPa]",mat.S)+card("Q̄ (θ = "+fmt(th)+"°)","[GPa]",q.Qb)+card("S̄","[1/GPa]",q.Sb)+
+    card("T<sub>σ</sub> (stress xy→12)","",q.Ts)+card("T<sub>ε</sub> (strain xy→12)","",q.Te)+"</div>";
+  return{states:states,out:out};
+}
+
+/* ---------- laminate ---------- */
+function renderLaminate(){
+  var lp=core.parseLayup($("layup").value),sym=lp.sym||$("sym").checked;
+  var lay=core.buildLayup(lp.angles,sym,core.parseList($("thickness").value,"thickness"));
+  var mat=readMaterial($("matInputMode").value);
+  var NL=[req("n1","Nx / ε°x"),req("n2","Ny / ε°y"),req("n3","Nxy / γ°xy")],ML=[req("m1","Mx / κx"),req("m2","My / κy"),req("m3","Mxy / κxy")];
+  var z=req("zpt","z"),n=lay.angles.length,i;
+
+  var abd=core.laminateABD(mat.Q,lay.angles,lay.h),abdInv;
+  try{abdInv=core.inv(abd.ABD)}catch(e){throw new Error("The laminate stiffness matrix is singular - check the layup and material.")}
+  var e0,kap,NM;
+  if(lamKnown==="load"){NM=NL.concat(ML);var s=core.mv(abdInv,NM);e0=s.slice(0,3);kap=s.slice(3)}
+  else{e0=NL.map(function(x){return x*1e-6});kap=ML.slice();NM=core.mv(abd.ABD,e0.concat(kap))}
+  var which=core.laminaeAt(z,lay.h),eng=core.engConstants(abdInv,lay.H);
+  var symmetricB=core.maxAbs(abd.B)<1e-9*core.maxAbs(abd.A)*lay.H;
+
+  /* --- top: deformation + point --- */
+  var states="<div class='grid4'>"+card("Mid-plane strain ε°","[µε]",us(e0))+card("Curvature κ","[1/mm]",kap)+
+    card("Force flow N","[N/mm]",NM.slice(0,3))+card("Moment flow M","[N·mm/mm]",NM.slice(3,6))+"</div>";
+  which.forEach(function(k){
+    var r=core.laminaState(mat.Q,lay.angles[k],e0,kap,z);
+    states+="<h2 style='margin-top:16px'>Point at z = "+fmt(z)+" mm — lamina "+(k+1)+" (θ = "+fmt(lay.angles[k])+"°)"+
+      (which.length>1?" <span class='unit'>z lies on an interface, both neighbouring laminae shown</span>":"")+"</h2>"+
+      "<div class='grid4'>"+card("σ_xy","[MPa]",r.sxy)+card("σ_12","[MPa]",r.s12)+card("ε_xy","[µε]",us(r.exy))+card("ε_12","[µε]",us(r.e12))+"</div>";
+  });
+
+  /* --- below: geometry and matrices --- */
+  var rows="";
+  for(i=0;i<n;i++)rows+="<tr><td>"+(i+1)+"</td><td>"+fmt(lay.angles[i])+"°</td><td>"+fmt(lay.th[i])+"</td><td>"+fmt(lay.h[i])+"</td><td>"+fmt(lay.h[i+1])+"</td></tr>";
+  var out="<div class='card mat'><h2>Layup <span class='unit'>"+n+" laminae"+(sym?", mirrored":"")+", H = "+fmt(lay.H)+" mm</span></h2>"+
+    "<table class='f'><thead><tr><th>Lamina</th><th>θ</th><th>t [mm]</th><th>h top [mm]</th><th>h bottom [mm]</th></tr></thead><tbody>"+rows+"</tbody></table></div>";
+
+  out+="<div class='grid'>"+card("Q","[GPa] (same for every lamina)",mat.Q)+card("S","[1/GPa] (same for every lamina)",mat.S)+"</div>";
+
+  var det="";
+  for(i=0;i<n;i++){
+    var q=core.qbar(mat.Q,lay.angles[i]);
+    det+="<details data-i='"+i+"'><summary>Lamina "+(i+1)+": θ = "+fmt(lay.angles[i])+"°, h = "+fmt(lay.h[i])+" … "+fmt(lay.h[i+1])+" mm</summary><div class='grid'>"+
+      card("T<sub>σ</sub> (stress xy→12)","",q.Ts)+card("T<sub>ε</sub> (strain xy→12)","",q.Te)+card("Q̄","[GPa]",q.Qb)+card("S̄","[1/GPa]",q.Sb)+"</div></details>";
+  }
+  out+="<div class='card'><h2>Lamina matrices in laminate axes</h2>"+det+"</div>";
+
+  out+="<div class='grid4'>"+card("A","[N/mm]",abd.A)+card("B","[N]",abd.B)+card("D","[N·mm]",abd.D)+"</div>"+
+    "<div class='grid'>"+card("ABD","[[A, B], [B, D]]",abd.ABD,{split:3})+card("abd = inv(ABD)","[[a, b], [bᵀ, d]]",abdInv,{split:3,sci:true})+"</div>";
+
+  function er(name,c){return"<tr><td>"+name+"</td><td>"+fmt(c.Ex)+"</td><td>"+fmt(c.Ey)+"</td><td>"+fmt(c.Gxy)+"</td><td>"+fmt(c.mu_xy)+"</td><td>"+fmt(c.mu_yx)+"</td></tr>"}
+  out+="<div class='card mat'><h2>Equivalent laminate constants <span class='unit'>(Table 5.3)</span></h2><table class='f'><thead><tr><th></th><th>Ex (GPa)</th><th>Ey (GPa)</th><th>Gxy (GPa)</th><th>μxy</th><th>μyx</th></tr></thead><tbody>"+
+    er("Tensile",eng.tensile)+er("Bending",eng.bending)+"</tbody></table>"+
+    "<div class='note' style='margin-top:6px'>"+(symmetricB?"B = 0 (symmetric laminate): the constants are valid equivalent properties."
+      :"B ≠ 0 (unsymmetric laminate): in-plane loads also curve the laminate, so these equivalent constants are not valid.")+"</div></div>";
+
+  var tr="";
+  for(i=0;i<n;i++)[lay.h[i],lay.h[i+1]].forEach(function(zz,idx){
+    var s=core.laminaState(mat.Q,lay.angles[i],e0,kap,zz);
+    tr+="<tr"+(idx===0?" class='sep'":"")+"><td>"+(i+1)+"</td><td>"+fmt(lay.angles[i])+"°</td><td>"+fmt(zz)+"</td><td>"+fmt(s.s12[0])+"</td><td>"+fmt(s.s12[1])+"</td><td>"+fmt(s.s12[2])+
+      "</td><td>"+fmt(s.sxy[0])+"</td><td>"+fmt(s.sxy[1])+"</td><td>"+fmt(s.sxy[2])+"</td></tr>";
+  });
+  out+="<div class='card mat'><h2>Stress at the top and bottom of every lamina <span class='unit'>[MPa]</span></h2><table class='f'><thead><tr><th>Lamina</th><th>θ</th><th>z [mm]</th>"+
+    "<th>σ₁</th><th>σ₂</th><th>τ₁₂</th><th>σx</th><th>σy</th><th>τxy</th></tr></thead><tbody>"+tr+"</tbody></table>"+
+    "<div class='note' style='margin-top:6px'>σ₁, σ₂, τ₁₂ are in the lamina (fibre) axes; σx, σy, τxy in the laminate axes. Strain is continuous through the thickness, stress jumps at interfaces.</div></div>";
+  return{states:states,out:out};
+}
+
+/* ---------- main ---------- */
+function calc(){
+  var open=openSet();
+  try{
+    var r=mode==="lamina"?renderLamina():renderLaminate();
+    $("err").textContent="";
+    $("states").innerHTML=r.states;$("out").innerHTML=r.out;
+    restoreOpen(open);
+  }catch(e){
+    $("err").textContent=e.message;
+    $("states").innerHTML="";$("out").innerHTML="";
+  }
+}
+
+/* ---------- controls ---------- */
+function setMode(m){
+  mode=m;
+  $("mSingle").classList.toggle("on",m==="lamina");$("mLaminate").classList.toggle("on",m==="laminate");
+  $("sec-lamina").style.display=m==="lamina"?"block":"none";$("sec-laminate").style.display=m==="laminate"?"block":"none";
+  var sel=$("matInputMode"),o;
+  for(o=0;o<sel.options.length;o++)if(sel.options[o].value==="Qb"||sel.options[o].value==="Sb")sel.options[o].disabled=(m==="laminate");
+  if(m==="laminate"&&(sel.value==="Qb"||sel.value==="Sb")){
+    var ok=true;try{readMaterial(sel.value)}catch(e){ok=false}
+    sel.value=ok?"Q":"eng";onMatChange();return;
+  }
+  calc();
+}
+$("mSingle").onclick=function(){setMode("lamina")};
+$("mLaminate").onclick=function(){setMode("laminate")};
+function pickLamina(){
+  $("kS").classList.toggle("on",known==="stress");$("kE").classList.toggle("on",known==="strain");
+  $("sXY").classList.toggle("on",sys==="xy");$("s12").classList.toggle("on",sys==="m");
+  updateLabels();calc();
+}
+$("kS").onclick=function(){known="stress";pickLamina()};
+$("kE").onclick=function(){known="strain";pickLamina()};
+$("sXY").onclick=function(){sys="xy";pickLamina()};
+$("s12").onclick=function(){sys="m";pickLamina()};
+function pickLaminate(){
+  $("lkN").classList.toggle("on",lamKnown==="load");$("lkE").classList.toggle("on",lamKnown==="strain");
+  updateLabels();calc();
+}
+$("lkN").onclick=function(){lamKnown="load";pickLaminate()};
+$("lkE").onclick=function(){lamKnown="strain";pickLaminate()};
+
+$("matInputMode").addEventListener("change",onMatChange);
+document.querySelector("main").addEventListener("input",function(e){if(e.target.id!=="matInputMode")calc()});
+$("sym").addEventListener("change",calc);
+$("sunit").addEventListener("change",calc);
+
+document.querySelectorAll(".sg").forEach(function(b){b.onclick=function(){
+  var el=$(b.getAttribute("data-for")),v=Number(el.value.trim().replace(",","."));
+  if(el.value.trim()!==""&&isFinite(v)){el.value=String(-v);calc()}
+}});
+[0,15,30,45,60,75,90,-45].forEach(function(a){
+  var b=document.createElement("button");b.type="button";b.textContent=a+"°";
+  b.onclick=function(){$("th").value=a;calc()};$("chips").appendChild(b);
+});
+
+showMat("eng");updateLabels();calc();
+})();
+</script>
+</body>
+</html>
