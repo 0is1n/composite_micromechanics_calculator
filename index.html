@@ -1,247 +1,203 @@
-"""
-Composite Micromechanics Calculator
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Composite calculator</title>
+<style>
+:root{--bg:#f2f4f6;--card:#fff;--ink:#16202a;--mute:#5d6975;--line:#d5dbe1;--acc:#0f6b5c;--accbg:#dff0ec;--bad:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1417;--card:#192026;--ink:#e6ecf0;--mute:#93a0ab;--line:#2c373f;--acc:#5fc7b0;--accbg:#1c3a35;--bad:#ff8a80}}
+:root[data-theme="dark"]{--bg:#0f1417;--card:#192026;--ink:#e6ecf0;--mute:#93a0ab;--line:#2c373f;--acc:#5fc7b0;--accbg:#1c3a35;--bad:#ff8a80}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,"SF Pro Text",system-ui,"Segoe UI",sans-serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+[hidden]{display:none!important}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 16px 8px}
+.w{max-width:1100px;margin:0 auto}
+h1{font-size:18px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+main{max-width:1100px;margin:0 auto;padding:14px 16px 40px}
+h3{font-size:15px;margin:0 0 8px;display:flex;gap:8px;align-items:center}
+h3 .cp{margin-left:auto}
+.u,.n{color:var(--mute);font-size:14px;font-weight:400}
+button{font:inherit;min-height:44px;min-width:44px;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+button.on{background:var(--accbg);border-color:var(--acc);color:var(--acc);font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+.seg{display:inline-flex;flex-wrap:wrap;gap:6px}
+.tabs{display:flex}.tabs button{flex:1}
+.cp{min-height:32px;padding:2px 10px;font-size:13px;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.g,.g2,.g4{display:grid;gap:12px;margin-bottom:12px}
+.g{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}.g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr));max-width:540px}
+.g2>.card,.g4>.card{margin:0}
+.f label{display:block;font-size:14px;color:var(--mute);margin-bottom:4px}
+.pr{display:flex;gap:6px}
+input{width:100%;min-width:0;font:inherit;font-size:20px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.mat{overflow-x:auto}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:17px;margin:2px 0}
+td,th{padding:5px 12px;text-align:right;white-space:nowrap}
+th{font-weight:500;color:var(--mute);font-size:14px}
+.mat td:first-of-type{border-left:2px solid var(--ink)}.mat td:last-child{border-right:2px solid var(--ink)}
+.p6 td:nth-child(3){border-right:1px solid var(--line)}.p6 tr:nth-child(3) td{border-bottom:1px solid var(--line)}
+.ft{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.ft th{border-bottom:1px solid var(--line)}.ft td:first-child,.ft th:first-child{text-align:left}
+.ft td{border:0!important}
+.err{color:var(--bad);min-height:1.3em;margin:0 0 8px;font-weight:600}
+details{margin-bottom:12px}summary{cursor:pointer;padding:10px 0;font-weight:600}
+.lay{display:grid;grid-template-columns:1fr 240px;gap:16px;align-items:start}
+@media(max-width:700px){.lay{grid-template-columns:1fr}}
+svg text{fill:var(--ink);font:11px system-ui}svg .pt{fill:#10201c;font:600 13px system-ui}
+</style></head><body>
+<header><div class="w"><h1>Composite calculator <button id="rs" class="cp">Reset</button></h1>
+<div class="seg tabs" data-k="tab"><button data-v="material">Material</button><button data-v="transform">Transform</button><button data-v="lamina">Lamina</button><button data-v="laminate">Laminate</button></div></div></header>
+<main>
+<div class="err" id="err" role="alert"></div>
 
-Two modes:
-  "lamina"   - stress and strain in xy and 12 systems
-  "laminate" - lamina matrices, ABD and its inverse, mid-plane strain + curvature, 
-               stress/strain at a point at distance z from NA
+<div data-p="material">
+<section class="card"><h3>What do you know?</h3>
+<div class="seg" data-k="src"><button data-v="eng">E₁ E₂ ν₁₂ G₁₂</button><button data-v="Q">Q (1-2)</button><button data-v="S">S (1-2)</button><button data-v="Qb">Q̄ (x-y)</button><button data-v="Sb">S̄ (x-y)</button></div>
+<div class="g" id="eng" style="margin-top:12px"></div>
+<div class="g g3" id="gm" style="margin-top:12px"></div>
+<div class="thf"></div>
+<div class="n" style="margin-top:8px">Q̄ and S̄ always belong to the θ above. Switching the input type carries your current values across.</div></section>
+<div id="o-material"></div></div>
 
-Units: 
-    moduli in GPa, 
-    stress in MPa, 
-    strain in microstrain,
-    lengths in mm, 
-    force flow N/mm, 
-    moment flow N*mm/mm, 
-    curvature 1/mm
+<div data-p="transform">
+<section class="card"><h3>Ply angle</h3><div class="thf"></div></section>
+<div id="o-transform"></div></div>
 
-Conventions:
-  - lamina are counted from the top down
-  - z measured from NA, downward +ve 
-  - theta +ve from x-axis to 1-axis
-"""
-import numpy as np
+<div data-p="lamina">
+<section class="card"><h3>Ply angle</h3><div class="thf"></div></section>
+<section class="card"><h3>Load on the lamina</h3>
+<div class="seg" data-k="known"><button data-v="stress">Stress known</button><button data-v="strain">Strain known</button></div>
+<div class="seg" data-k="sys"><button data-v="xy">in x-y</button><button data-v="12">in 1-2</button></div>
+<div class="seg" data-k="su"><button data-v="ue">µε</button><button data-v="1">plain ε</button></div>
+<div class="g g3" id="lv" style="margin-top:12px"></div></section>
+<div id="o-lamina"></div></div>
 
-# ------------------------- INPUTS  -------------------------
-E1, E2, mu12, G12 = 19.755, 1.9755, 0.35, 0.7   # GPa
-mode = "laminate"            # "lamina" or "laminate"
+<div data-p="laminate">
+<section class="card"><div class="lay"><div>
+<h3>Stacking sequence</h3>
+<div class="f"><label>Angles, top to bottom (°) — separate with commas, slashes or spaces; ±45 gives 45, −45</label><input data-k="layup" autocomplete="off"></div>
+<div class="f" style="margin-top:10px"><label>Thickness (mm) — one value, or one per ply</label><input data-k="t" autocomplete="off"></div>
+<div class="seg" data-k="sym" style="margin-top:10px"><button data-v="0">Full stack as typed</button><button data-v="1">Mirror it (symmetric)</button></div>
+</div><div id="stk"></div></div></section>
+<section class="card"><h3>Load or deformation</h3>
+<div class="seg" data-k="lk"><button data-v="load">Load known (N, M)</button><button data-v="strain">Deformation known (ε⁰, κ)</button></div>
+<div class="g g3" id="lN" style="margin-top:12px"></div><div class="g g3" id="lM"></div>
+<div id="zf" style="max-width:240px"></div><div class="n">z from the mid-plane, positive downward. Plies are counted from the top.</div></section>
+<div id="o-laminate"></div></div>
+</main>
+<script>
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const S0={tab:'material',src:'eng',known:'stress',sys:'xy',lk:'load',su:'ue',sym:'0'},S={...S0};
+const D={E1:19.755,E2:1.9755,nu:0.35,G:0.7,th:60,v0:-3.5,v1:7,v2:-1.4,layup:'45, 0',t:'3, 5',n0:0,n1:0,n2:0,m0:10,m1:0,m2:0,z:-2.5};
+for(let i=0;i<9;i++)D['g'+i]='';
+const F=(k,l,s)=>`<div class="f"><label id="l_${k}">${l}</label><div class="pr"><input data-k="${k}" inputmode="decimal" autocomplete="off">${s?'<button class="sg" aria-label="Change sign">±</button>':''}</div></div>`;
+$('#eng').innerHTML=F('E1','E₁ (GPa)')+F('E2','E₂ (GPa)')+F('nu','ν₁₂',1)+F('G','G₁₂ (GPa)');
+$('#gm').innerHTML=[0,1,2,3,4,5,6,7,8].map(i=>F('g'+i,'',1)).join('');
+$('#lv').innerHTML=[0,1,2].map(i=>F('v'+i,'',1)).join('');
+$('#lN').innerHTML=[0,1,2].map(i=>F('n'+i,'',1)).join('');$('#lM').innerHTML=[0,1,2].map(i=>F('m'+i,'',1)).join('');
+$('#zf').innerHTML=F('z','z (mm)',1);
+$$('.thf').forEach(e=>e.innerHTML='<div style="max-width:240px">'+F('th','θ (degrees)',1)+'</div><div class="chips">'+[0,15,30,45,60,75,90,-45].map(a=>`<button data-a="${a}">${a}°</button>`).join('')+'</div>');
 
-# ---- lamina ----
-theta_deg = 60             # degrees
-known  = "stress"            # "stress" or "strain"
-system = "xy"                # coordinate system: "xy" or "12"
-load   = [-3.5, 7, -1.4]    # stress[MPa] or strain[microstrain]
+// ---- maths (nested arrays) ----
+const mm=(A,B)=>A.map(r=>B[0].map((_,j)=>r.reduce((s,a,k)=>s+a*B[k][j],0)));
+const mv=(A,v)=>A.map(r=>r.reduce((s,a,k)=>s+a*v[k],0));
+function inv(M){const n=M.length,sc=Math.max(...M.flat().map(Math.abs)),A=M.map((r,i)=>[...r,...r.map((_,j)=>+(i==j))]);
+ for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;
+  if(!(Math.abs(A[p][i])>1e-12*sc))throw Error('That matrix is singular, so it cannot be inverted.');
+  [A[i],A[p]]=[A[p],A[i]];const d=A[i][i];A[i]=A[i].map(x=>x/d);
+  for(let r=0;r<n;r++)if(r!=i){const f=A[r][i];A[r]=A[r].map((x,j)=>x-f*A[i][j])}}
+ return A.map(r=>r.slice(n))}
+const TT=th=>{const t=th*Math.PI/180,m=Math.cos(t),n=Math.sin(t),a=m*m,b=n*n,c=m*n;
+ return{m,n,Ts:[[a,b,2*c],[b,a,-2*c],[-c,c,a-b]],Te:[[a,b,c],[b,a,-c],[-2*c,2*c,a-b]]}};
+const nv=k=>parseFloat(String($(`[data-k=${k}]`).value).replace(',','.'));
+const pl=k=>$(`[data-k=${k}]`).value.split(/[\s,;/]+/).filter(Boolean).flatMap(x=>x[0]=='±'?[+x.slice(1),-x.slice(1)]:[+x]);
+const k3=(M,f)=>M.map(r=>r.map(f));
+function mat(){const th=nv('th');if(isNaN(th))throw Error('Enter an angle θ.');const T=TT(th),{Ts,Te}=T;let Q,Sm,Qb,Sb;
+ const g=()=>{const a=[0,1,2].map(i=>[0,1,2].map(j=>nv('g'+(3*i+j))));if(a.flat().some(isNaN))throw Error('Fill in all nine matrix entries.');return a};
+ if(S.src=='eng'){const[E1,E2,n,G]=['E1','E2','nu','G'].map(nv);if([E1,E2,n,G].some(isNaN))throw Error('Enter E₁, E₂, ν₁₂ and G₁₂.');
+  if(E1<=0||E2<=0||G<=0)throw Error('E₁, E₂ and G₁₂ must be positive.');const d=1-n*n*E2/E1;if(d<=0)throw Error('ν₁₂ is too large: 1 − ν₁₂ν₂₁ must stay positive.');
+  Sm=[[1/E1,-n/E1,0],[-n/E1,1/E2,0],[0,0,1/G]];Q=[[E1/d,n*E2/d,0],[n*E2/d,E2/d,0],[0,0,G]]}
+ else if(S.src=='Q'){Q=g();Sm=inv(Q)}else if(S.src=='S'){Sm=g();Q=inv(Sm)}
+ else{if(S.src=='Qb'){Qb=g()}else{Sb=g();Qb=inv(Sb)}Q=mm(mm(Ts,Qb),inv(Te));Sm=inv(Q)}
+ Qb=Qb||mm(mm(inv(Ts),Q),Te);Sb=Sb||inv(Qb);const E1=1/Sm[0][0];
+ return{Q,S:Sm,Qb,Sb,E1,E2:1/Sm[1][1],nu:-Sm[0][1]*E1,G:1/Sm[2][2],T,th}}
+function lam(m){let a=pl('layup'),t=pl('t');if(!a.length||a.some(isNaN))throw Error('Layup: type angles such as 45, 0, -45.');
+ if(!t.length||t.some(x=>!(x>0)))throw Error('Thickness must be positive numbers.');
+ if(t.length==1)t=a.map(_=>t[0]);else if(t.length!=a.length)throw Error('Give one thickness, or one per ply ('+a.length+').');
+ const a0=a;if(S.sym=='1'){a=[...a,...[...a].reverse()];t=[...t,...[...t].reverse()]}
+ const H=t.reduce((x,y)=>x+y),h=[-H/2];t.forEach(x=>h.push(h[h.length-1]+x));
+ const Tp=a.map(TT),Qs=a.map((_,i)=>k3(mm(mm(inv(Tp[i].Ts),m.Q),Tp[i].Te),v=>v*1e3));
+ const z3=()=>[0,0,0].map(_=>[0,0,0]),A=z3(),B=z3(),Dm=z3();
+ Qs.forEach((q,i)=>{const x=h[i],y=h[i+1];for(let r=0;r<3;r++)for(let c=0;c<3;c++){A[r][c]+=q[r][c]*(y-x);B[r][c]+=q[r][c]*(y*y-x*x)/2;Dm[r][c]+=q[r][c]*(y**3-x**3)/3}});
+ const ABD=[...A.map((r,i)=>[...r,...B[i]]),...B.map((r,i)=>[...r,...Dm[i]])],abd=inv(ABD);
+ const N=[0,1,2].map(i=>nv('n'+i)),Mo=[0,1,2].map(i=>nv('m'+i));if([...N,...Mo].some(isNaN))throw Error('Enter all six load or deformation values.');
+ let e0,kp,NM;if(S.lk=='load'){const s=mv(abd,[...N,...Mo]);e0=s.slice(0,3);kp=s.slice(3);NM=[...N,...Mo]}
+ else{e0=N.map(x=>x*1e-6);kp=Mo;NM=mv(ABD,[...e0,...kp])}
+ const st=(i,z)=>{const exy=e0.map((e,j)=>e+z*kp[j]),sxy=mv(Qs[i],exy);return{exy,sxy,e12:mv(Tp[i].Te,exy),s12:mv(Tp[i].Ts,sxy)}};
+ return{a,a0,t,H,h,Tp,Qs,A,B,D:Dm,ABD,abd,e0,kp,NM,st}}
 
-# ---- laminate ----
-layup = [45, 0]             # lamina orientations
-symmetric = False            # true of false
-t = [3, 5]                  # lamina thickness (one value or list)
-lam_known = "load"           # "load" (q, m) or "strain" (eps0, kappa)
-N = [0, 0, 0]         # [qx, qy, qxy]  force flow     [N/mm]
-M = [10, 0, 0]         # [mx, my, mxy]  moment flow    [N*mm/mm]
-eps0 = [0, 0, 0]       # [ex, ey, gxy]  mid-plane strain [microstrain])
-kappa = [0, 0, 0]      # [kx, ky, kxy]  curvature [1/mm]
-z_point = -2.5                # distance from mid-plane [mm]
-# -----------------------------------------------------------------------
+// ---- rendering ----
+const cp=[];
+const fm=(v,sci)=>!isFinite(v)?'–':sci?v.toExponential(3):Math.abs(v)<1e-9?'0':(Math.abs(v)>=1e6||Math.abs(v)<1e-3)?v.toExponential(3):String(parseFloat(v.toPrecision(5)));
+function M(t,u,A,o={}){const R=Array.isArray(A[0])?A:A.map(x=>[x]),mx=Math.max(...R.flat().map(Math.abs)),Z=R.map(r=>r.map(x=>Math.abs(x)<1e-10*mx?0:x));
+ cp.push(Z.map(r=>r.join('\t')).join('\n'));
+ return`<section class="card mat"><h3>${t} <span class="u">${u||''}</span><button class="cp" data-i="${cp.length-1}">Copy</button></h3><table class="${Z.length==6?'p6':''}">${Z.map((r,i)=>`<tr>${o.r?`<th>${o.r[i]}</th>`:''}${r.map(x=>`<td>${fm(x,o.sci)}</td>`).join('')}</tr>`).join('')}</table></section>`}
+const G=(c,x)=>`<div class="${c}">${x.join('')}</div>`;
+const TB=(h,rows)=>`<section class="card mat"><table class="ft"><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></section>`;
+const GPa=x=>k3(x,v=>v);
+function rMat(m){return TB(['E₁ (GPa)','E₂ (GPa)','ν₁₂','G₁₂ (GPa)','ν₂₁'],[[m.E1,m.E2,m.nu,m.G,m.nu*m.E2/m.E1].map(v=>fm(v))])+
+ G('g2',[M('Q','[GPa] 1-2',m.Q),M('S','[1/GPa] 1-2',m.S),M(`Q̄ (θ = ${fm(m.th)}°)`,'[GPa] x-y',m.Qb),M(`S̄ (θ = ${fm(m.th)}°)`,'[1/GPa] x-y',m.Sb)])}
+function rTr(m){const{Ts,Te}=m.T;return`<div class="n" style="margin:0 0 8px">cos θ = ${fm(m.T.m)}, sin θ = ${fm(m.T.n)}. σ₁₂ = Ts σxy and ε₁₂ = Te εxy, with engineering shear strain γ.</div>`+
+ G('g2',[M('Ts','stress xy → 12',Ts),M('Te','strain xy → 12',Te),M('Ts⁻¹','stress 12 → xy',inv(Ts)),M('Te⁻¹','strain 12 → xy',inv(Te))])}
+const LB={stress:{xy:['σx','σy','τxy'],12:['σ₁','σ₂','τ₁₂']},strain:{xy:['εx','εy','γxy'],12:['ε₁','ε₂','γ₁₂']}};
+function rLam(m){const T=m.T,v=[0,1,2].map(i=>nv('v'+i));if(v.some(isNaN))throw Error('Enter all three load values.');
+ const sc=S.su=='ue'?1e-6:1,Qm=k3(m.Qb,x=>x*1e3),Sm=k3(m.Sb,x=>x/1e3);let sxy,exy;
+ if(S.known=='stress'){sxy=S.sys=='xy'?v:mv(inv(T.Ts),v);exy=mv(Sm,sxy)}else{const e=v.map(x=>x*sc);exy=S.sys=='xy'?e:mv(inv(T.Te),e);sxy=mv(Qm,exy)}
+ const E=x=>x.map(y=>y/sc),su=sc==1?'[ε]':'[µε]';
+ return G('g4',[M('σ xy','[MPa]',sxy,{r:LB.stress.xy}),M('σ 1-2','[MPa]',mv(T.Ts,sxy),{r:LB.stress[12]}),M('ε xy',su,E(exy),{r:LB.strain.xy}),M('ε 1-2',su,E(mv(T.Te,exy)),{r:LB.strain[12]})])}
+const hue=a=>(((a%180)+180)%180)*2;
+function fig(L,z){const hp=L.t.map(x=>Math.max(20,x/L.H*240)),top=[0];hp.forEach(x=>top.push(top[top.length-1]+x));const Ht=top[top.length-1];
+ const Y=zz=>{zz=Math.min(Math.max(zz,L.h[0]),L.h[L.h.length-1]);let i=L.a.findIndex((_,j)=>zz<=L.h[j+1]);return top[i]+(zz-L.h[i])/L.t[i]*hp[i]};
+ return`<svg viewBox="0 0 240 ${Ht+20}" role="img" aria-label="Ply stack" width="100%"><g transform="translate(0,10)">`+L.a.map((x,i)=>`<rect x="52" y="${top[i]}" width="150" height="${hp[i]}" rx="2" fill="hsl(${hue(x)},55%,64%)" stroke="var(--card)" stroke-width="1.5"/><text class="pt" x="127" y="${top[i]+hp[i]/2+4}" text-anchor="middle">${i+1}: ${fm(x)}°</text>`).join('')+
+ L.h.map((x,i)=>`<text x="46" y="${top[i]+4}" text-anchor="end">${fm(x)}</text>`).join('')+
+ `<line x1="40" x2="212" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--mute)" stroke-dasharray="4 3"/><text x="214" y="${Y(0)+4}">mid</text>`+
+ (isNaN(z)?'':`<line x1="40" x2="202" y1="${Y(z)}" y2="${Y(z)}" stroke="var(--acc)" stroke-width="2.5"/><text x="214" y="${Y(z)+4}" style="fill:var(--acc);font-weight:700">z</text>`)+
+ `</g></svg><div class="n">[${L.a0.map(x=>fm(x)).join('/')}]${S.sym=='1'?'s':''}, H = ${fm(L.H)} mm. Ply colour follows angle; numbers on the left are z in mm.</div>`}
+function rLmt(m){$('#stk').innerHTML='';const L=lam(m),z=nv('z');$('#stk').innerHTML=fig(L,z);
+ const ev=['x','y','xy'],bz=Math.max(...L.B.flat().map(Math.abs)),az=Math.max(...L.A.flat().map(Math.abs));
+ let o=G('g4',[M('ε⁰ mid-plane strain','[µε]',L.e0.map(x=>x*1e6),{r:ev}),M('κ curvature','[1/mm]',L.kp,{r:ev,sci:1}),M('N force flow','[N/mm]',L.NM.slice(0,3),{r:ev}),M('M moment flow','[N·mm/mm]',L.NM.slice(3),{r:ev})]);
+ if(!isNaN(z)){const k=L.a.findIndex((_,i)=>z>=L.h[i]&&(z<L.h[i+1]||i==L.a.length-1&&z<=L.h[i+1]));
+  if(k<0)o+=`<div class="err">z = ${fm(z)} mm is outside the laminate (±${fm(L.H/2)} mm).</div>`;
+  else{const r=L.st(k,z);o+=`<h3>Point at z = ${fm(z)} mm: ply ${k+1}, θ = ${fm(L.a[k])}°</h3>`+G('g4',[M('σ xy','[MPa]',r.sxy,{r:LB.stress.xy}),M('σ 1-2','[MPa]',r.s12,{r:LB.stress[12]}),M('ε xy','[µε]',r.exy.map(x=>x*1e6),{r:LB.strain.xy}),M('ε 1-2','[µε]',r.e12.map(x=>x*1e6),{r:LB.strain[12]})])}}
+ o+=G('g2',[M('ABD','[[A,B],[B,D]]',L.ABD),M('abd = ABD⁻¹','',L.abd,{sci:1})])+G('g4',[M('A','[N/mm]',L.A),M('B','[N]',L.B),M('D','[N·mm]',L.D)]);
+ const b=L.abd,H=L.H,te=[1/(H*b[0][0]),1/(H*b[1][1]),1/(H*b[2][2])].map(x=>fm(x/1e3)),be=[12/(H**3*b[3][3]),12/(H**3*b[4][4]),12/(H**3*b[5][5])].map(x=>fm(x/1e3));
+ o+=TB(['Equivalent constants','Eₓ (GPa)','Eᵧ (GPa)','Gₓᵧ (GPa)','νₓᵧ','νᵧₓ'],[['Tensile (from a)',...te,fm(-b[0][1]/b[0][0]),fm(-b[0][1]/b[1][1])],['Bending (from d)',...be,fm(-b[3][4]/b[3][3]),fm(-b[3][4]/b[4][4])]])+
+  (bz>1e-9*az*H?'<div class="n" style="margin:-6px 0 12px">B ≠ 0, so this laminate is not symmetric. The constants above only describe symmetric laminates.</div>':'');
+ let rows=[];L.a.forEach((x,i)=>[L.h[i],L.h[i+1]].forEach(zz=>rows.push([i+1,fm(x)+'°',fm(zz),...L.st(i,zz).s12.map(v=>fm(v))])));
+ o+=TB(['Ply','θ','z (mm)','σ₁ (MPa)','σ₂ (MPa)','τ₁₂ (MPa)'],rows);
+ return o+`<details><summary>Matrices for each ply (Ts, Te, Q̄, S̄)</summary>${L.a.map((x,i)=>`<h3>Ply ${i+1}, θ = ${fm(x)}°</h3>`+G('g4',[M('Ts','',L.Tp[i].Ts),M('Te','',L.Tp[i].Te),M('Q̄','[MPa]',L.Qs[i]),M('S̄','[1/MPa]',inv(L.Qs[i]),{sci:1})])).join('')}</details>`}
 
-
-def transforms(theta_deg):
-    """Transformation matrix T, xy to 12"""
-    t = np.radians(theta_deg)
-    m, n = np.cos(t), np.sin(t)
-    Ts = np.array([[m * m, n * n, 2 * m * n],           # for stress T
-                   [n * n, m * m, -2 * m * n],
-                   [-m * n, m * n, m * m - n * n]])
-    Te = np.array([[m * m, n * n, m * n],               #for strain T^T^-1
-                   [n * n, m * m, -m * n],
-                   [-2 * m * n, 2 * m * n, m * m - n * n]])
-    return Ts, Te
-
-
-def material_SQ(E1, E2, mu12, G12):
-    """Compliance S and stiffness Q matricies in 12 system"""
-    mu21 = mu12 * E2 / E1
-    d = 1 - mu12 * mu21
-    S = np.array([[1 / E1, -mu12 / E1, 0],
-                  [-mu12 / E1, 1 / E2, 0],
-                  [0, 0, 1 / G12]])
-    Q = np.array([[E1 / d, mu12 * E2 / d, 0],
-                  [mu12 * E2 / d, E2 / d, 0],
-                  [0, 0, G12]])
-    return S, Q
-
-
-def global_SQ(S, Q, theta_deg):
-    """Qbar and Sbar in xy system"""
-    Ts, Te = transforms(theta_deg)
-    Qb = np.linalg.inv(Ts) @ Q @ Te
-    Sb = np.linalg.inv(Qb)
-    return Qb, Sb
-
-
-def lamina_solver(known, system, load, S, Q, theta_deg):
-    """Lamina: return stress [MPa] and strain in both systems"""
-    Ts, Te = transforms(theta_deg)
-    Qb, Sb = global_SQ(S, Q, theta_deg)
-    Qb, Sb = Qb * 1e3, Sb / 1e3            # GPa to MPa
-    v = np.array(load, dtype=float)
-    if known == "strain":
-        v = v * 1e-6                       # microstrain to strain
-        exy = v if system == "xy" else np.linalg.inv(Te) @ v
-        sxy = Qb @ exy
-    elif known == "stress":
-        sxy = v if system == "xy" else np.linalg.inv(Ts) @ v
-        exy = Sb @ sxy
-    else:
-        raise ValueError("known must be either 'stress' or 'strain'")
-    return sxy, Ts @ sxy, exy, Te @ exy
-
-
-# -------------------- Laminate Setup ---------------------- 
-def build_layup(layup, symmetric, t):
-    """Turn lamina list into geometry (angles, thicknesses, h)"""
-    angles = [float(a) for a in layup]                                     # layup angles list
-    th = [float(x) for x in t] if np.ndim(t) else [float(t)] * len(angles) # layup thickness list
-    if len(th) != len(angles):
-        raise ValueError("t must be one number or one t per lamina")
-    if symmetric:
-        angles = angles + angles[::-1]
-        th = th + th[::-1]
-    H = sum(th)                                          # laminate thickness
-    h = -H / 2 + np.concatenate([[0], np.cumsum(th)])    # lamina boundaries
-    return angles, th, h, H
-
-
-def laminate_ABD(Q, angles, h):
-    """Matricies: A [N/mm], B [N], D [N mm]"""
-    A, B, D = np.zeros((3, 3)), np.zeros((3, 3)), np.zeros((3, 3)) # initialise matricies
-    for ang, h0, h1 in zip(angles, h[:-1], h[1:]):
-        Qb = global_SQ(None, Q, ang)[0] * 1e3               # GPa to MPa
-        A += Qb * (h1 - h0)
-        B += Qb * (h1 ** 2 - h0 ** 2) / 2
-        D += Qb * (h1 ** 3 - h0 ** 3) / 3
-    ABD = np.block([[A, B], [B, D]])
-    return A, B, D, ABD
-
-
-def engineering_constants(a, d, H):
-    """
-    These are equivalent Young's Moduli of the laminate when B = 0. 
-    a, d = compliance matricies parts, H = laminate thickness
-    ten = tensile, ben = bending
-    (Ex, Ey, Gxy, muxy, muyx, mx, my (transverse coefficients))
-    """
-    ten = dict(Ex=1 / (H * a[0, 0]), Ey=1 / (H * a[1, 1]), Gxy=1 / (H * a[2, 2]),
-               mu_xy=-a[0, 1] / a[0, 0], mu_yx=-a[0, 1] / a[1, 1])
-    ben = dict(Ex=12 / (H ** 3 * d[0, 0]), Ey=12 / (H ** 3 * d[1, 1]), Gxy=12 / (H ** 3 * d[2, 2]),
-               mu_xy=-d[0, 1] / d[0, 0], mu_yx=-d[0, 1] / d[1, 1])
-    return ten, ben        # moduli in MPa
-
-
-
-def laminae_at(z, zb):
-    """Index of the lamina at height z"""
-    return [int(np.clip(np.searchsorted(zb, z) - 1, 0, len(zb) - 2))] # clip so if z=-H/2 you dont get index -1
-
-
-def lamina_state(Q, ang, eps0, kappa, z):
-    """Strain and stress in a lamina at height z 
-    returned as a dictionary (strain, stress in MPa)"""
-    Ts, Te = transforms(ang)
-    Qb = global_SQ(None, Q, ang)[0] * 1e3
-    exy = eps0 + z * kappa                                  
-    sxy = Qb @ exy                                          
-    return dict(exy=exy, e12=Te @ exy, sxy=sxy, s12=Ts @ sxy)
-# ------------------------------------------ 
-
-
-def laminate_solver(lam_known, N, M, eps0, kappa, ABD):
-    """Return mid-plane strain and curvature [-] and [1/mm]"""
-    if lam_known == "load":
-        sol = np.linalg.solve(ABD, np.array(list(N) + list(M), dtype=float))
-        return sol[:3], sol[3:]
-    if lam_known == "strain":
-        return np.array(eps0, dtype=float) * 1e-6, np.array(kappa, dtype=float)
-
- 
-def show(name, M, sci=False):
-    M = np.array(M, dtype=float)    
-    if sci:
-        M = np.where(np.abs(M) < 1e-12 * np.abs(M).max(), 0, M)   # drop round-off noise
-    fmt = {"float_kind": lambda x: f"{x: .3e}"} if sci else None
-    print(f"\n{name}\n{np.array2string(M, precision=4, suppress_small=True, formatter=fmt)}")
-
-
-S, Q = material_SQ(E1, E2, mu12, G12)
-
-if mode == "lamina":
-    Qb, Sb = global_SQ(S, Q, theta_deg)
-    show("Q [GPa]", Q)
-    show("S [1/GPa]", S)
-    show("Ts  (stress xy to 12)", transforms(theta_deg)[0])
-    show("Te  (strain xy to 12)", transforms(theta_deg)[1])
-    show("Qbar [GPa]", Qb)
-    show("Sbar [1/GPa]", Sb)
-
-    sxy, s12, exy, e12 = lamina_solver(known, system, load, S, Q, theta_deg)
-    show("stress_xy [MPa]", sxy)
-    show("stress_12 [MPa]", s12)
-    show("strain_xy [microstrain]", exy * 1e6)
-    show("strain_12 [microstrain]", e12 * 1e6)
-
-elif mode == "laminate":
-    angles, th, hb, H = build_layup(layup, symmetric, t)
-    print(f"Layup: {angles}")
-    print(f"Lamina thickness [mm]: {th}   total H = {H:g} mm")
-    print(f"Lamina boundaries h [mm] from NA: {np.round(hb, 6).tolist()}")
-
-    show("Q [GPa]  (same for every lamina)", Q)
-    show("S [1/GPa]  (same for every lamina)", S)
-
-    for i, ang in enumerate(angles, 1):
-        Ts, Te = transforms(ang)
-        Qb, Sb = global_SQ(S, Q, ang)
-        print(f"\n================ lamina {i}: theta = {ang:g} deg, z = {hb[i-1]:g} to {hb[i]:g} mm ================")
-        show("Ts  (stress xy to 12)", Ts)
-        show("Te  (strain xy to 12)", Te)
-        show("Qbar [GPa]", Qb)
-        show("Sbar [1/GPa]", Sb)
-
-    A, B, D, ABD = laminate_ABD(Q, angles, hb)
-    print("\n================ LAMINATE ================")
-    show("A [N/mm]", A)
-    show("B [N]", B)
-    show("D [N mm]", D)
-    show("ABD  [[A,B],[B,D]]", ABD)
-    abd = np.linalg.inv(ABD)
-    show("abd = inv(ABD)  (units: 1/(N/mm), 1/N, 1/(N mm))", abd, sci=True)
-    ten, ben = engineering_constants(abd[:3, :3], abd[3:, 3:], H)
-    print("\nEquivalent constants (only for symmetric laminates)")
-    for label, c in (("tensile", ten), ("bending", ben)):
-        print(f"  {label}: Ex = {c['Ex'] * 1e-3:.4f} GPa, Ey = {c['Ey'] * 1e-3:.4f} GPa, Gxy = {c['Gxy'] * 1e-3:.4f} GPa, "
-              f"mu_xy = {c['mu_xy']:.4f}, mu_yx = {c['mu_yx']:.4f}")
-
-    e0, kap = laminate_solver(lam_known, N, M, eps0, kappa, ABD)
-    if lam_known == "strain":
-        NM = ABD @ np.concatenate([e0, kap])
-        show("N [N/mm]", NM[:3])
-        show("M [N mm/mm]", NM[3:])
-    show("mid-plane strain eps0 [microstrain]", e0 * 1e6)
-    show("curvature kappa [micro 1/mm]", kap * 1e6)
-    
-    print(f"\n================ POINT AT z = {z_point:g} mm ================")
-    for k in laminae_at(z_point, hb):
-        r = lamina_state(Q, angles[k], e0, kap, z_point)
-        print(f"\n--- lamina {k + 1} (theta = {angles[k]:g} deg) ---")
-        show("strain_xy [microstrain]", r["exy"] * 1e6)
-        show("strain_12 [microstrain]", r["e12"] * 1e6)
-        show("stress_xy [MPa]", r["sxy"])
-        show("stress_12 [MPa]", r["s12"])
-
-    print("\n================ STRESS 12 AT TOP / BOTTOM OF EACH lamina [MPa] ================")
-    print(f"{'lamina':>4} {'theta':>7} {'h':>9} {'sigma1':>11} {'sigma2':>11} {'tau12':>11}")
-    for i, ang in enumerate(angles):
-        for zz in (hb[i], hb[i + 1]):
-            s = lamina_state(Q, ang, e0, kap, zz)["s12"]
-            print(f"{i + 1:>4} {ang:>7g} {zz:>9.4f} {s[0]:>11.4f} {s[1]:>11.4f} {s[2]:>11.4f}")
-
+function ui(){$$('.seg button').forEach(b=>b.classList.toggle('on',S[b.parentElement.dataset.k]==b.dataset.v));
+ $$('[data-p]').forEach(p=>p.hidden=p.dataset.p!=S.tab);$('#eng').hidden=S.src!='eng';$('#gm').hidden=S.src=='eng';
+ const L=(k,t)=>{const e=$('#l_'+k);if(e)e.textContent=t},ix=['11','12','16','21','22','26','61','62','66'],nm={Q:'Q',S:'S',Qb:'Q̄',Sb:'S̄'}[S.src];
+ ix.forEach((x,i)=>L('g'+i,nm+x.replace(/./g,c=>'₀₁₂₃₄₅₆₇₈₉'[c])));
+ const lb=LB[S.known][S.sys];lb.forEach((x,i)=>L('v'+i,x+(S.known=='stress'?' (MPa)':S.su=='ue'?' (µε)':'')));
+ (S.lk=='load'?['Nx (N/mm)','Ny (N/mm)','Nxy (N/mm)','Mx (N·mm/mm)','My (N·mm/mm)','Mxy (N·mm/mm)']:['ε⁰x (µε)','ε⁰y (µε)','γ⁰xy (µε)','κx (1/mm)','κy (1/mm)','κxy (1/mm)']).forEach((x,i)=>L((i<3?'n':'m')+i%3,x))}
+function R(){cp.length=0;ui();$('#err').textContent='';const o=$('#o-'+S.tab);
+ try{const m=mat();o.innerHTML={material:rMat,transform:rTr,lamina:rLam,laminate:rLmt}[S.tab](m)}catch(e){o.innerHTML='';$('#err').textContent=e.message}}
+const put=(k,v)=>$$(`[data-k=${k}]`).forEach(x=>x.value=v);
+const sv=()=>{try{localStorage.cc2=JSON.stringify({S,v:Object.fromEntries($$('input[data-k]').map(x=>[x.dataset.k,x.value]))})}catch(_){}};
+function carry(n){try{const m=mat();[m.E1,m.E2,m.nu,m.G].forEach((v,i)=>put(['E1','E2','nu','G'][i],+v.toPrecision(8)));
+ if(n!='eng')m[n].flat().forEach((v,i)=>put('g'+i,Math.abs(v)<1e-9?0:+v.toPrecision(8)))}catch(_){}}
+document.addEventListener('input',e=>{const k=e.target.dataset.k;if(k){$$(`[data-k=${k}]`).forEach(x=>x!=e.target&&(x.value=e.target.value));sv();R()}});
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.classList.contains('sg')){const i=b.previousElementSibling,v=parseFloat(i.value.replace(',','.'));if(!isNaN(v)){i.value=-v;i.dispatchEvent(new Event('input',{bubbles:true}))}}
+ else if(b.dataset.a!=null){put('th',b.dataset.a);sv();R()}
+ else if(b.dataset.v!=null){const k=b.parentElement.dataset.k;if(k=='src')carry(b.dataset.v);S[k]=b.dataset.v;sv();R();scrollTo(0,0)}
+ else if(b.dataset.i!=null){try{navigator.clipboard.writeText(cp[b.dataset.i]);b.textContent='Copied'}catch(_){}}
+ else if(b.id=='rs'){Object.assign(S,S0);Object.entries(D).forEach(([k,v])=>put(k,v));sv();R()}});
+Object.entries(D).forEach(([k,v])=>put(k,v));
+try{const j=JSON.parse(localStorage.cc2);Object.assign(S,j.S);Object.entries(j.v).forEach(([k,v])=>put(k,v))}catch(_){}
+R();
+</script></body></html>
